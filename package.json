@@ -1,0 +1,33 @@
+{
+  "name": "boardroom-voting-system",
+  "version": "1.0.0",
+  "description": "A blockchain-based boardroom voting system with weighted voting mechanisms",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js",
+    "start": "node scripts/start.js",
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6",
+    "ethers": "^5.7.2",
+    "next": "^13.4.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "web3": "^1.9.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^2.0.2",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@types/node": "^18.16.0",
+    "@types/react": "^18.2.0",
+    "chai": "^4.3.7",
+    "dotenv": "^16.5.0",
+    "hardhat": "^2.24.2",
+    "typescript": "^5.0.4"
+  }
+}

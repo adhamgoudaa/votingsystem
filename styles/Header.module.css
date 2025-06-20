@@ -1,0 +1,191 @@
+.header {
+  width: 100%;
+  background: white;
+  border-bottom: 1px solid #eaeaea;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.875rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #1a1a1a;
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: color 0.2s ease;
+}
+
+.logo:hover {
+  color: #0070f3;
+}
+
+.logoIcon {
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+  color: #0070f3;
+}
+
+.logoText {
+  letter-spacing: -0.02em;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.adminLinks {
+  display: flex;
+  gap: 1.25rem;
+  margin-right: 1.5rem;
+  padding-right: 1.5rem;
+  border-right: 1px solid #eaeaea;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #4b5563;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.link:hover {
+  color: #0070f3;
+  background: rgba(0, 112, 243, 0.04);
+}
+
+.linkIcon {
+  margin-right: 0.5rem;
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+}
+
+.link:hover .linkIcon {
+  color: #0070f3;
+}
+
+.accountSection {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 0.875rem;
+  color: #4b5563;
+  padding: 0.5rem 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #eaeaea;
+}
+
+.accountIcon {
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+}
+
+.adminBadge {
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.4rem;
+  background: #0070f3;
+  color: white;
+  font-size: 0.6875rem;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.025em;
+}
+
+.connectButton,
+.disconnectButton {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.connectButton {
+  background: #0070f3;
+  color: white;
+  border: none;
+}
+
+.connectButton:hover {
+  background: #0061d5;
+}
+
+.disconnectButton {
+  background: #f8f9fa;
+  color: #4b5563;
+  border: 1px solid #eaeaea;
+}
+
+.disconnectButton:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+@media (max-width: 768px) {
+  .nav {
+    padding: 0.75rem 1rem;
+  }
+
+  .adminLinks {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #eaeaea;
+    flex-direction: column;
+    gap: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .header:focus-within .adminLinks {
+    display: flex;
+  }
+
+  .logoText {
+    display: none;
+  }
+
+  .account {
+    font-size: 0.8125rem;
+    padding: 0.4rem 0.6rem;
+  }
+} 

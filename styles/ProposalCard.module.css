@@ -1,0 +1,150 @@
+.card {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.title {
+  font-size: 1.25rem;
+  color: #2d3748;
+  margin: 0;
+}
+
+.status {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.active {
+  background-color: #9ae6b4;
+  color: #22543d;
+}
+
+.upcoming {
+  background-color: #bee3f8;
+  color: #2c5282;
+}
+
+.ended {
+  background-color: #fed7d7;
+  color: #9b2c2c;
+}
+
+.finalized {
+  background-color: #e9d8fd;
+  color: #553c9a;
+}
+
+.timing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.option {
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.option:hover {
+  border-color: #4299e1;
+}
+
+.option.selected {
+  border-color: #4299e1;
+  background-color: #ebf8ff;
+}
+
+.option h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #2d3748;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #718096;
+}
+
+.voting {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.scoreSelector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.scoreSelector label {
+  color: #4a5568;
+  font-size: 0.875rem;
+}
+
+.scoreSelector input {
+  flex: 1;
+}
+
+.scoreSelector span {
+  min-width: 2.5rem;
+  text-align: right;
+  color: #4a5568;
+}
+
+.voteButton {
+  background-color: #4299e1;
+  color: white;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.voteButton:hover:not(:disabled) {
+  background-color: #3182ce;
+}
+
+.voteButton:disabled {
+  background-color: #cbd5e0;
+  cursor: not-allowed;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  color: #718096;
+  font-size: 0.875rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+} 
