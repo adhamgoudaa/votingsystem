@@ -9,10 +9,19 @@ export default function CreateProposal() {
   const router = useRouter();
   const { contract, isAdmin } = useWeb3();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Set default start time to 5 minutes from now
+  const getDefaultStartTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 5); // 5 minutes from now
+    return now.toISOString().slice(0, 16); // Format for datetime-local input
+  };
+
   const [formData, setFormData] = useState({
     description: '',
     options: ['', ''],
-    startTime: '',
+    startTime: getDefaultStartTime(),
     duration: '3600' // Default 1 hour
   });
 
@@ -35,9 +44,41 @@ export default function CreateProposal() {
     setFormData({ ...formData, options: newOptions });
   };
 
+  const validateForm = () => {
+    setError('');
+    
+    // Check if start time is in the future
+    const startTime = new Date(formData.startTime);
+    const now = new Date();
+    
+    if (startTime <= now) {
+      setError('Start time must be in the future. Please select a time at least 1 minute from now.');
+      return false;
+    }
+
+    // Check if description is provided
+    if (!formData.description.trim()) {
+      setError('Please provide a proposal description.');
+      return false;
+    }
+
+    // Check if at least 2 options are provided
+    const validOptions = formData.options.filter(opt => opt.trim() !== '');
+    if (validOptions.length < 2) {
+      setError('Please provide at least 2 options.');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!contract || !isAdmin) return;
+
+    if (!validateForm()) {
+      return;
+    }
 
     try {
       setLoading(true);
@@ -52,7 +93,7 @@ export default function CreateProposal() {
       router.push('/');
     } catch (error) {
       console.error('Error creating proposal:', error);
-      alert('Failed to create proposal. Please try again.');
+      setError('Failed to create proposal. Please check your inputs and try again.');
     } finally {
       setLoading(false);
     }
@@ -84,6 +125,12 @@ export default function CreateProposal() {
 
       <main className={styles.main}>
         <h1 className={styles.title}>Create New Proposal</h1>
+
+        {error && (
+          <div className={styles.error}>
+            {error}
+          </div>
+        )}
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.field}>
@@ -129,13 +176,15 @@ export default function CreateProposal() {
           </div>
 
           <div className={styles.field}>
-            <label>Start Time</label>
+            <label>Start Time (must be in the future)</label>
             <input
               type="datetime-local"
               value={formData.startTime}
               onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
               required
+              min={new Date().toISOString().slice(0, 16)}
             />
+            <small>Default is set to 5 minutes from now</small>
           </div>
 
           <div className={styles.field}>
@@ -148,6 +197,7 @@ export default function CreateProposal() {
               min="300"
               step="1"
             />
+            <small>Minimum 300 seconds (5 minutes)</small>
           </div>
 
           <button

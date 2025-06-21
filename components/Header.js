@@ -4,7 +4,7 @@ import { Icons } from './Icons';
 import styles from '../styles/Header.module.css';
 
 export default function Header() {
-  const { account, connect, disconnect, isAdmin } = useWeb3();
+  const { account, connect, disconnect, isAdmin, isConnecting } = useWeb3();
 
   return (
     <header className={styles.header}>
@@ -40,8 +40,12 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              <button onClick={connect} className={styles.connectButton}>
-                Connect Wallet
+              <button 
+                onClick={connect} 
+                className={styles.connectButton}
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
             )}
           </div>

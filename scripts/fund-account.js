@@ -6,7 +6,7 @@ async function main() {
   const signer = new hre.ethers.Wallet(HARDHAT_PRIVATE_KEY, hre.ethers.provider);
   
   // Your address
-  const receiverAddress = "0x5A5D9Fe05Fb0b9E198CC48D505675F85D340BA6b";
+  const receiverAddress = "0xb4b7B16AB32Ed31a7cD5BCcC65051b8716205203";
   
   // Send 1000 ETH
   const tx = await signer.sendTransaction({

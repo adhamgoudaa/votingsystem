@@ -185,4 +185,23 @@ contract BoardroomVoting is AccessControl, ReentrancyGuard {
             option.weightedVoteCount
         );
     }
+
+    function hasVoted(uint256 proposalId, address voter) external view returns (bool) {
+        return voters[voter].hasVotedForProposal[proposalId];
+    }
+
+    function getVoteDetails(uint256 proposalId, address voter) external view returns (
+        bool userHasVoted,
+        uint8 votedOption,
+        uint256 voterWeight
+    ) {
+        userHasVoted = voters[voter].hasVotedForProposal[proposalId];
+        if (userHasVoted) {
+            votedOption = proposals[proposalId].votes[voter];
+        } else {
+            votedOption = 0;
+        }
+        voterWeight = voters[voter].weight;
+        return (userHasVoted, votedOption, voterWeight);
+    }
 } 
