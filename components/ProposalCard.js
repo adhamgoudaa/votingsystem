@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWeb3 } from '../hooks/useWeb3';
 import styles from '../styles/ProposalCard.module.css';
 
-export default function ProposalCard({ proposal }) {
+export default function ProposalCard({ proposal, departments = [] }) {
   const [options, setOptions] = useState([]);
   const [selectedOption, setSelectedOption] = useState(null);
   const [score, setScore] = useState(50);
@@ -69,6 +69,15 @@ export default function ProposalCard({ proposal }) {
     setError('');
     try {
       setLoading(true);
+      
+      // Check if user can still vote using the new function
+      const [canStillVote, reason] = await contract.canStillVote(proposal.id, account);
+      if (!canStillVote) {
+        setError(reason);
+        setLoading(false);
+        return;
+      }
+      
       const tx = await contract.castVote(proposal.id, selectedOption, score);
       await tx.wait();
       await loadOptions();
@@ -89,6 +98,7 @@ export default function ProposalCard({ proposal }) {
       // Clean up common error message patterns
       if (message.includes('Already voted')) message = 'You have already voted on this proposal.';
       if (message.includes('Voter not registered')) message = 'You are not registered as a voter.';
+      if (message.includes('not participating')) message = 'Your department is not participating in this proposal.';
       setError(message);
     } finally {
       setLoading(false);
@@ -106,6 +116,13 @@ export default function ProposalCard({ proposal }) {
   const status = getStatus();
   const isActive = status === 'Active';
 
+  // Get participating department names
+  const participatingDepartmentNames = proposal.participatingDepartments
+    ? proposal.participatingDepartments
+        .map(deptId => departments.find(dept => dept.id === deptId)?.name)
+        .filter(name => name) // Remove undefined values
+    : [];
+
   // Debug information
   console.log('ProposalCard Debug:', {
     proposalId: proposal.id,
@@ -118,7 +135,9 @@ export default function ProposalCard({ proposal }) {
     canVote: isActive && account && !isAdmin && !(userVote && userVote.hasVoted),
     buttonDisabled: loading || selectedOption === null || (userVote && userVote.hasVoted),
     userVote,
-    error
+    error,
+    participatingDepartments: proposal.participatingDepartments,
+    participatingDepartmentNames
   });
 
   return (
@@ -171,6 +190,21 @@ export default function ProposalCard({ proposal }) {
           <span className={`${styles.badge} ${styles[status.toLowerCase()]}`}>{status}</span>
           {isAdmin && <span style={{ marginLeft: 10, color: 'blue', fontWeight: 'bold' }}></span>}
         </div>
+        
+        {/* Participating Departments */}
+        {participatingDepartmentNames.length > 0 && (
+          <div className={styles.departments}>
+            <h4>Participating Departments:</h4>
+            <div className={styles.departmentList}>
+              {participatingDepartmentNames.map((deptName, index) => (
+                <span key={index} className={styles.departmentTag}>
+                  {deptName}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        
         <div className={styles.timing}>
           <p>Start: {proposal.startTime.toLocaleString()}</p>
           <p>End: {proposal.endTime.toLocaleString()}</p>
@@ -191,7 +225,14 @@ export default function ProposalCard({ proposal }) {
                 }
                 onClick={() => {
                   if (isActive && !isAdmin && !(userVote && userVote.hasVoted)) {
+                    console.log(`Option ${option.id} clicked, setting selectedOption to ${option.id}`);
                     setSelectedOption(option.id);
+                  } else {
+                    console.log(`Option ${option.id} clicked but cannot select:`, {
+                      isActive,
+                      isAdmin,
+                      hasVoted: userVote && userVote.hasVoted
+                    });
                   }
                 }}
                 style={userVote && userVote.hasVoted ? { cursor: 'not-allowed', opacity: 0.6 } : {}}

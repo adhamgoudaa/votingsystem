@@ -114,8 +114,7 @@ contract BoardroomVoting is AccessControl, ReentrancyGuard {
         require(!voters[msg.sender].hasVotedForProposal[proposalId], "Already voted");
         
         Proposal storage proposal = proposals[proposalId];
-        require(block.timestamp >= proposal.startTime, "Voting not started");
-        require(block.timestamp <= proposal.endTime, "Voting ended");
+        require(!proposal.finalized, "Proposal already finalized");
         require(option < proposal.options.length, "Invalid option");
         require(score > 0 && score <= 100, "Score must be between 1 and 100");
 
@@ -131,7 +130,6 @@ contract BoardroomVoting is AccessControl, ReentrancyGuard {
 
     function finalizeProposal(uint256 proposalId) external onlyRole(ADMIN_ROLE) {
         Proposal storage proposal = proposals[proposalId];
-        require(block.timestamp > proposal.endTime, "Voting still in progress");
         require(!proposal.finalized, "Already finalized");
 
         uint256 winningOption = 0;
@@ -203,5 +201,64 @@ contract BoardroomVoting is AccessControl, ReentrancyGuard {
         }
         voterWeight = voters[voter].weight;
         return (userHasVoted, votedOption, voterWeight);
+    }
+
+    /**
+     * @dev Check if a user can vote on a specific proposal
+     * @param proposalId The ID of the proposal
+     * @param voter The address of the voter
+     * @return canVote Whether the user can vote on this proposal
+     * @return reason Reason why they cannot vote (empty if they can vote)
+     */
+    function canVoteOnProposal(uint256 proposalId, address voter) external view returns (bool canVote, string memory reason) {
+        // Check if proposal exists
+        if (proposalId >= _proposalIds.current()) {
+            return (false, "Proposal does not exist");
+        }
+        
+        // Check if voter is registered
+        if (!voters[voter].isRegistered) {
+            return (false, "Voter not registered");
+        }
+        
+        Proposal storage proposal = proposals[proposalId];
+        
+        // Check if proposal is finalized - only check this, not timestamps
+        if (proposal.finalized) {
+            return (false, "Proposal already finalized");
+        }
+        
+        return (true, "");
+    }
+
+    /**
+     * @dev Check if a user can still cast a vote (hasn't voted yet)
+     * @param proposalId The ID of the proposal
+     * @param voter The address of the voter
+     * @return canStillVote Whether the user can still cast a vote
+     * @return reason Reason why they cannot vote (empty if they can vote)
+     */
+    function canStillVote(uint256 proposalId, address voter) external view returns (bool canStillVote, string memory reason) {
+        // First check if they can vote on the proposal at all
+        (bool canVote, string memory voteReason) = this.canVoteOnProposal(proposalId, voter);
+        if (!canVote) {
+            return (false, voteReason);
+        }
+        
+        // Check if they have already voted
+        if (voters[voter].hasVotedForProposal[proposalId]) {
+            return (false, "Already voted");
+        }
+        
+        return (true, "");
+    }
+
+    /**
+     * @dev Check if a user is registered as a voter
+     * @param voter The address of the voter
+     * @return True if the user is registered
+     */
+    function isVoterRegistered(address voter) external view returns (bool) {
+        return voters[voter].isRegistered;
     }
 } 

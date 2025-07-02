@@ -17,6 +17,10 @@ export default function Header() {
         <div className={styles.links}>
           {isAdmin && (
             <div className={styles.adminLinks}>
+              <Link href="/departments" className={styles.link}>
+                <span className={styles.linkIcon}><Icons.Departments /></span>
+                Departments
+              </Link>
               <Link href="/create-proposal" className={styles.link}>
                 <span className={styles.linkIcon}><Icons.CreateProposal /></span>
                 Create Proposal

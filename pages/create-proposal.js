@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Header from '../components/Header';
@@ -10,11 +10,13 @@ export default function CreateProposal() {
   const { contract, isAdmin } = useWeb3();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
   
-  // Set default start time to 5 minutes from now
+  // Set default start time to 10 minutes from now
   const getDefaultStartTime = () => {
     const now = new Date();
-    now.setMinutes(now.getMinutes() + 5); // 5 minutes from now
+    now.setMinutes(now.getMinutes() + 10); // 10 minutes from now
     return now.toISOString().slice(0, 16); // Format for datetime-local input
   };
 
@@ -22,8 +24,43 @@ export default function CreateProposal() {
     description: '',
     options: ['', ''],
     startTime: getDefaultStartTime(),
-    duration: '3600' // Default 1 hour
+    duration: '3600', // Default 1 hour
+    selectedDepartments: []
   });
+
+  // Load departments on component mount
+  useEffect(() => {
+    if (contract) {
+      loadDepartments();
+    }
+  }, [contract]);
+
+  const loadDepartments = async () => {
+    try {
+      setLoadingDepartments(true);
+      const departmentCount = await contract.getDepartmentCount();
+      const deptArray = [];
+
+      for (let i = 0; i < departmentCount.toNumber(); i++) {
+        const [name, weight, isActive, memberCount] = await contract.getDepartmentDetails(i);
+        if (isActive) {
+          deptArray.push({
+            id: i,
+            name,
+            weight: weight.toNumber(),
+            memberCount: memberCount.toNumber()
+          });
+        }
+      }
+
+      setDepartments(deptArray);
+    } catch (error) {
+      console.error('Error loading departments:', error);
+      setError('Failed to load departments. Please refresh the page.');
+    } finally {
+      setLoadingDepartments(false);
+    }
+  };
 
   const handleOptionChange = (index, value) => {
     const newOptions = [...formData.options];
@@ -42,6 +79,19 @@ export default function CreateProposal() {
     if (formData.options.length <= 2) return;
     const newOptions = formData.options.filter((_, i) => i !== index);
     setFormData({ ...formData, options: newOptions });
+  };
+
+  const handleDepartmentToggle = (departmentId) => {
+    const selectedDepts = [...formData.selectedDepartments];
+    const index = selectedDepts.indexOf(departmentId);
+    
+    if (index > -1) {
+      selectedDepts.splice(index, 1);
+    } else {
+      selectedDepts.push(departmentId);
+    }
+    
+    setFormData({ ...formData, selectedDepartments: selectedDepts });
   };
 
   const validateForm = () => {
@@ -69,6 +119,12 @@ export default function CreateProposal() {
       return false;
     }
 
+    // Check if at least one department is selected
+    if (formData.selectedDepartments.length === 0) {
+      setError('Please select at least one department to participate in this proposal.');
+      return false;
+    }
+
     return true;
   };
 
@@ -83,17 +139,52 @@ export default function CreateProposal() {
     try {
       setLoading(true);
       const startTimestamp = Math.floor(new Date(formData.startTime).getTime() / 1000);
+      
+      // Get current blockchain time
+      const currentBlock = await contract.provider.getBlock('latest');
+      const currentBlockTime = currentBlock.timestamp;
+      
+      // If the set start time is in the past, use current blockchain time instead
+      const finalStartTime = startTimestamp <= currentBlockTime ? currentBlockTime : startTimestamp;
+      
+      console.log('Creating proposal:');
+      console.log('Requested start time:', startTimestamp);
+      console.log('Current blockchain time:', currentBlockTime);
+      console.log('Final start time:', finalStartTime);
+      
+      // Debug the parameters being sent
+      const description = formData.description;
+      const options = formData.options.filter(opt => opt.trim() !== '');
+      const duration = Number(formData.duration);
+      const selectedDepts = formData.selectedDepartments;
+      
       const tx = await contract.createProposal(
-        formData.description,
-        formData.options.filter(opt => opt.trim() !== ''),
-        startTimestamp,
-        Number(formData.duration)
+        description,
+        options,
+        finalStartTime,
+        duration,
+        selectedDepts
       );
+      
+      console.log('Transaction sent:', tx.hash);
       await tx.wait();
+      console.log('Transaction confirmed');
       router.push('/');
     } catch (error) {
       console.error('Error creating proposal:', error);
-      setError('Failed to create proposal. Please check your inputs and try again.');
+      
+      // Try to extract more detailed error information
+      let errorMessage = 'Failed to create proposal. Please check your inputs and try again.';
+      
+      if (error.error && error.error.data && error.error.data.message) {
+        errorMessage = `Contract Error: ${error.error.data.message}`;
+      } else if (error.reason) {
+        errorMessage = `Error: ${error.reason}`;
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -109,6 +200,17 @@ export default function CreateProposal() {
             <p>Only administrators can create new proposals.</p>
             <button onClick={() => router.push('/')}>Return to Home</button>
           </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (loadingDepartments) {
+    return (
+      <div className={styles.container}>
+        <Header />
+        <main className={styles.main}>
+          <div className={styles.loading}>Loading departments...</div>
         </main>
       </div>
     );
@@ -176,6 +278,30 @@ export default function CreateProposal() {
           </div>
 
           <div className={styles.field}>
+            <label>Participating Departments</label>
+            <div className={styles.departmentsList}>
+              {departments.map((department) => (
+                <div key={department.id} className={styles.departmentItem}>
+                  <label className={styles.departmentCheckbox}>
+                    <input
+                      type="checkbox"
+                      checked={formData.selectedDepartments.includes(department.id)}
+                      onChange={() => handleDepartmentToggle(department.id)}
+                    />
+                    <span className={styles.departmentInfo}>
+                      <strong>{department.name}</strong>
+                      <span className={styles.departmentDetails}>
+                        Weight: {department.weight} | Members: {department.memberCount}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              ))}
+            </div>
+            <small>Select which departments can vote on this proposal. All members of selected departments will be automatically registered as voters.</small>
+          </div>
+
+          <div className={styles.field}>
             <label>Start Time (must be in the future)</label>
             <input
               type="datetime-local"
@@ -184,7 +310,7 @@ export default function CreateProposal() {
               required
               min={new Date().toISOString().slice(0, 16)}
             />
-            <small>Default is set to 5 minutes from now</small>
+            <small>Default is set to 10 minutes from now</small>
           </div>
 
           <div className={styles.field}>
@@ -203,11 +329,24 @@ export default function CreateProposal() {
           <button
             type="submit"
             className={styles.submitButton}
-            disabled={loading}
+            disabled={loading || departments.length === 0}
           >
             {loading ? 'Creating...' : 'Create Proposal'}
           </button>
         </form>
+
+        {departments.length === 0 && (
+          <div className={styles.noDepartments}>
+            <h3>No Active Departments</h3>
+            <p>You need to create departments before you can create proposals.</p>
+            <button 
+              onClick={() => router.push('/departments')}
+              className={styles.createDepartmentButton}
+            >
+              Create Departments
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

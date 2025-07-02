@@ -1,6 +1,6 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { ethers } from 'ethers';
-import BoardroomVotingABI from '../contracts/artifacts/contracts/BoardroomVoting.sol/BoardroomVoting.json';
+import DepartmentVotingABI from '../contracts/artifacts/contracts/DepartmentVoting.sol/DepartmentVoting.json';
 
 const Web3Context = createContext();
 
@@ -70,7 +70,7 @@ export function Web3Provider({ children }) {
       const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
       const contract = new ethers.Contract(
         contractAddress,
-        BoardroomVotingABI.abi,
+        DepartmentVotingABI.abi,
         signer
       );
       setContract(contract);
