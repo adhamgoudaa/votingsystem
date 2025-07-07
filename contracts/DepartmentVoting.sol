@@ -28,11 +28,14 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         bool isRegistered;
         uint256 departmentId;
         mapping(uint256 => bool) hasVotedForProposal;
+        mapping(uint256 => mapping(uint256 => uint8)) optionScores; // proposalId => optionId => score
+        mapping(uint256 => uint256) ratedOptionsCount; // proposalId => number of options rated
     }
 
     struct VoteOption {
         string description;
-        uint256 scoreSum;
+        uint256 totalScore;
+        uint256 totalRatings;
         uint256 weightedVoteCount;
     }
 
@@ -43,7 +46,7 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         bool finalized;
         VoteOption[] options;
         uint256 totalVotes;
-        mapping(address => uint8) votes;
+        mapping(address => bool) hasCompletedVoting;
         uint256[] participatingDepartments;
         mapping(uint256 => bool) isDepartmentParticipating;
     }
@@ -61,7 +64,8 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
     event MemberRemovedFromDepartment(uint256 indexed departmentId, address indexed member);
     event VoterRegistered(address indexed voter, uint256 weight, uint256 departmentId);
     event ProposalCreated(uint256 indexed proposalId, string description, uint256 startTime, uint256 endTime, uint256[] participatingDepartments);
-    event VoteCast(uint256 indexed proposalId, address indexed voter, uint8 option, uint256 weight);
+    event OptionRated(uint256 indexed proposalId, address indexed voter, uint256 optionId, uint8 score);
+    event VotingCompleted(uint256 indexed proposalId, address indexed voter);
     event ProposalFinalized(uint256 indexed proposalId, uint256 winningOption);
 
     constructor() {
@@ -227,7 +231,6 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         require(departments[newDepartmentId].isActive, "Department is not active");
         require(departments[newDepartmentId].isMember[voter], "Voter not in new department");
 
-        uint256 oldDepartmentId = voters[voter].departmentId;
         voters[voter].departmentId = newDepartmentId;
         voters[voter].weight = departments[newDepartmentId].weight;
 
@@ -266,7 +269,8 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         for (uint i = 0; i < optionDescriptions.length; i++) {
             proposal.options.push(VoteOption({
                 description: optionDescriptions[i],
-                scoreSum: 0,
+                totalScore: 0,
+                totalRatings: 0,
                 weightedVoteCount: 0
             }));
         }
@@ -314,27 +318,98 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         return proposalId;
     }
 
-    function castVote(uint256 proposalId, uint8 option, uint256 score) external nonReentrant {
+    /**
+     * @dev Rate a specific option for a proposal
+     * @param proposalId The ID of the proposal
+     * @param optionId The ID of the option to rate
+     * @param score The score (1-5) for this option
+     */
+    function rateOption(uint256 proposalId, uint256 optionId, uint8 score) external nonReentrant {
         require(voters[msg.sender].isRegistered, "Voter not registered");
-        require(!voters[msg.sender].hasVotedForProposal[proposalId], "Already voted");
+        require(!voters[msg.sender].hasVotedForProposal[proposalId], "Already completed voting");
+        require(!proposals[proposalId].hasCompletedVoting[msg.sender], "Already completed voting");
         
         Proposal storage proposal = proposals[proposalId];
         require(!proposal.finalized, "Proposal already finalized");
-        require(option < proposal.options.length, "Invalid option");
-        require(score > 0 && score <= 100, "Score must be between 1 and 100");
+        require(optionId < proposal.options.length, "Invalid option");
+        require(score >= 1 && score <= 5, "Score must be between 1 and 5");
+
+        // Check if voter's department is participating in this proposal
+        uint256 voterDeptId = voters[msg.sender].departmentId;
+        require(proposal.isDepartmentParticipating[voterDeptId], "Your department is not participating in this proposal");
+
+        // Check if this option was already rated by this voter
+        require(voters[msg.sender].optionScores[proposalId][optionId] == 0, "Option already rated");
+
+        // Record the score
+        voters[msg.sender].optionScores[proposalId][optionId] = score;
+        voters[msg.sender].ratedOptionsCount[proposalId]++;
+
+        // Update option statistics with weighted score
+        uint256 weight = voters[msg.sender].weight;
+        uint256 weightedScore = score * weight;
+        proposal.options[optionId].totalScore += weightedScore;
+        proposal.options[optionId].totalRatings++;
+        proposal.options[optionId].weightedVoteCount += weight;
+
+        emit OptionRated(proposalId, msg.sender, optionId, score);
+
+        // Check if all options have been rated
+        if (voters[msg.sender].ratedOptionsCount[proposalId] == proposal.options.length) {
+            // Complete the voting
+            voters[msg.sender].hasVotedForProposal[proposalId] = true;
+            proposal.hasCompletedVoting[msg.sender] = true;
+            proposal.totalVotes++;
+            
+            emit VotingCompleted(proposalId, msg.sender);
+        }
+    }
+
+    /**
+     * @dev Complete voting by rating all options at once (gas efficient)
+     * @param proposalId The ID of the proposal
+     * @param scores Array of scores for all options (must match the number of options)
+     */
+    function completeVoting(uint256 proposalId, uint8[] memory scores) external nonReentrant {
+        require(voters[msg.sender].isRegistered, "Voter not registered");
+        require(!voters[msg.sender].hasVotedForProposal[proposalId], "Already completed voting");
+        require(!proposals[proposalId].hasCompletedVoting[msg.sender], "Already completed voting");
+        
+        Proposal storage proposal = proposals[proposalId];
+        require(!proposal.finalized, "Proposal already finalized");
+        require(scores.length == proposal.options.length, "Must provide scores for all options");
 
         // Check if voter's department is participating in this proposal
         uint256 voterDeptId = voters[msg.sender].departmentId;
         require(proposal.isDepartmentParticipating[voterDeptId], "Your department is not participating in this proposal");
 
         uint256 weight = voters[msg.sender].weight;
-        proposal.options[option].scoreSum += score * weight;
-        proposal.options[option].weightedVoteCount += weight;
-        proposal.votes[msg.sender] = option;
-        proposal.totalVotes += 1;
-        voters[msg.sender].hasVotedForProposal[proposalId] = true;
 
-        emit VoteCast(proposalId, msg.sender, option, weight);
+        // Rate all options
+        for (uint256 i = 0; i < proposal.options.length; i++) {
+            require(scores[i] >= 1 && scores[i] <= 5, "Score must be between 1 and 5");
+            
+            // Only rate if not already rated
+            if (voters[msg.sender].optionScores[proposalId][i] == 0) {
+                voters[msg.sender].optionScores[proposalId][i] = scores[i];
+                voters[msg.sender].ratedOptionsCount[proposalId]++;
+                
+                // Update option statistics with weighted score
+                uint256 weightedScore = scores[i] * weight;
+                proposal.options[i].totalScore += weightedScore;
+                proposal.options[i].totalRatings++;
+                proposal.options[i].weightedVoteCount += weight;
+                
+                emit OptionRated(proposalId, msg.sender, i, scores[i]);
+            }
+        }
+
+        // Complete the voting
+        voters[msg.sender].hasVotedForProposal[proposalId] = true;
+        proposal.hasCompletedVoting[msg.sender] = true;
+        proposal.totalVotes++;
+        
+        emit VotingCompleted(proposalId, msg.sender);
     }
 
     function finalizeProposal(uint256 proposalId) external onlyRole(ADMIN_ROLE) {
@@ -342,14 +417,11 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         require(!proposal.finalized, "Already finalized");
 
         uint256 winningOption = 0;
-        uint256 highestScore = 0;
+        uint256 highestTotalScore = 0;
 
         for (uint256 i = 0; i < proposal.options.length; i++) {
-            uint256 avgScore = proposal.options[i].weightedVoteCount > 0 ?
-                proposal.options[i].scoreSum / proposal.options[i].weightedVoteCount : 0;
-            
-            if (avgScore > highestScore) {
-                highestScore = avgScore;
+            if (proposal.options[i].totalScore > highestTotalScore) {
+                highestTotalScore = proposal.options[i].totalScore;
                 winningOption = i;
             }
         }
@@ -426,7 +498,7 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         
         Proposal storage proposal = proposals[proposalId];
         
-        // Check if proposal is finalized - only check this, not timestamps
+        // Check if proposal is finalized
         if (proposal.finalized) {
             return (false, "Proposal already finalized");
         }
@@ -441,22 +513,22 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @dev Check if a user can still cast a vote (hasn't voted yet)
+     * @dev Check if a user can still rate options (hasn't completed voting yet)
      * @param proposalId The ID of the proposal
      * @param voter The address of the voter
-     * @return canStillVote Whether the user can still cast a vote
+     * @return canVote Whether the user can still rate options
      * @return reason Reason why they cannot vote (empty if they can vote)
      */
-    function canStillVote(uint256 proposalId, address voter) external view returns (bool canStillVote, string memory reason) {
+    function canStillVote(uint256 proposalId, address voter) external view returns (bool canVote, string memory reason) {
         // First check if they can vote on the proposal at all
-        (bool canVote, string memory voteReason) = this.canVoteOnProposal(proposalId, voter);
-        if (!canVote) {
+        (bool canVoteOnProposal, string memory voteReason) = this.canVoteOnProposal(proposalId, voter);
+        if (!canVoteOnProposal) {
             return (false, voteReason);
         }
         
-        // Check if they have already voted
+        // Check if they have already completed voting
         if (voters[voter].hasVotedForProposal[proposalId]) {
-            return (false, "Already voted");
+            return (false, "Already completed voting");
         }
         
         return (true, "");
@@ -532,7 +604,8 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
 
     function getOptionDetails(uint256 proposalId, uint256 optionIndex) external view returns (
         string memory description,
-        uint256 scoreSum,
+        uint256 totalScore,
+        uint256 totalRatings,
         uint256 weightedVoteCount
     ) {
         Proposal storage proposal = proposals[proposalId];
@@ -541,7 +614,8 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
         VoteOption storage option = proposal.options[optionIndex];
         return (
             option.description,
-            option.scoreSum,
+            option.totalScore,
+            option.totalRatings,
             option.weightedVoteCount
         );
     }
@@ -552,19 +626,24 @@ contract DepartmentVoting is AccessControl, ReentrancyGuard {
 
     function getVoteDetails(uint256 proposalId, address voter) external view returns (
         bool userHasVoted,
-        uint8 votedOption,
+        uint256[] memory optionScores,
         uint256 voterWeight,
-        uint256 departmentId
+        uint256 departmentId,
+        uint256 ratedOptionsCount
     ) {
         userHasVoted = voters[voter].hasVotedForProposal[proposalId];
-        if (userHasVoted) {
-            votedOption = proposals[proposalId].votes[voter];
-        } else {
-            votedOption = 0;
-        }
         voterWeight = voters[voter].weight;
         departmentId = voters[voter].departmentId;
-        return (userHasVoted, votedOption, voterWeight, departmentId);
+        ratedOptionsCount = voters[voter].ratedOptionsCount[proposalId];
+        
+        Proposal storage proposal = proposals[proposalId];
+        optionScores = new uint256[](proposal.options.length);
+        
+        for (uint256 i = 0; i < proposal.options.length; i++) {
+            optionScores[i] = voters[voter].optionScores[proposalId][i];
+        }
+        
+        return (userHasVoted, optionScores, voterWeight, departmentId, ratedOptionsCount);
     }
 
     /**
